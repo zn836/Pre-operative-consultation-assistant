@@ -60,6 +60,44 @@ st.markdown("""
     .question-button {
         margin: 5px;
     }
+    /* 隐藏原始输入框的label */
+    div[data-testid="stTextInput"] > label {
+        display: none;
+    }
+    /* 调整输入框容器的对齐 */
+    div[data-testid="column"]:has(div[data-testid="stTextInput"]) {
+        display: flex;
+        align-items: flex-end;
+    }
+    /* 调整按钮容器的对齐 */
+    div[data-testid="column"]:has(button[kind="primary"]) {
+        display: flex;
+        align-items: flex-end;
+    }
+    /* 强制按钮在移动端也并排显示 */
+    @media (max-width: 768px) {
+        [data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+        }
+    }
+    /* 确保按钮文字不换行并缩小尺寸 */
+    button[kind="primary"], button[kind="secondary"] {
+        white-space: nowrap !important;
+        font-size: 0.75rem !important;
+        padding: 0.35rem 0.5rem !important;
+        height: auto !important;
+        min-height: 2rem !important;
+    }
+    /* 针对功能按钮进一步缩小 */
+    button[data-testid="baseButton-secondary"],
+    button[data-testid="baseButton-primary"] {
+        transform: scale(0.9) !important;
+        transform-origin: center !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -384,23 +422,21 @@ if video_folder.exists():
         # 问答区
         #st.markdown("### 💬 智能问答")
 
-        # 问题输入
-        user_question = st.text_input(
-            "请输入您的问题",
-            value=st.session_state.current_question,
-            placeholder="例如:术前需要做哪些准备?"
-        )
+        # 使用聊天输入框（类似ChatGPT移动端）
+        user_question = st.chat_input("请输入您的问题，例如:术前需要做哪些准备?")
 
-        # 创建一行多列布局：提问按钮、播放按钮、专家解答按钮
-        col1, col2, col3 = st.columns([1, 1, 1])
+        # 如果有新输入，自动触发提问
+        ask_button = False
+        if user_question:
+            ask_button = True
+
+        # 创建一行多列布局：播放按钮、专家解答按钮
+        col1, col2 = st.columns([1, 1])
+
         with col1:
-            ask_button = st.button("🔍 提问", type="primary", use_container_width=True)
-
-        # 在提问按钮旁边显示播放和专家解答按钮（并排显示，手机端友好）
-        with col2:
             # 按钮状态：只有当有时间戳时才启用
             play_disabled = not bool(st.session_state.last_timestamps)
-            if st.button("📍播放相关内容",
+            if st.button("📍 播放内容",
                         key="jump_most_relevant",
                         type="primary" if not play_disabled else "secondary",
                         disabled=play_disabled,
@@ -410,10 +446,10 @@ if video_folder.exists():
                     st.session_state.video_time = time_to_seconds(timestamp)
                     st.rerun()
 
-        with col3:
+        with col2:
             # 按钮状态：只有当有时间戳时才启用
             expert_disabled = not bool(st.session_state.last_timestamps)
-            if st.button("👨‍⚕️获取详细回答",
+            if st.button("👨‍⚕️ 详细解答",
                         key="get_expert_answer",
                         type="primary" if not expert_disabled else "secondary",
                         disabled=expert_disabled,
@@ -491,8 +527,40 @@ if video_folder.exists():
             cols = st.columns(len(st.session_state.suggested_questions))
             for idx, question in enumerate(st.session_state.suggested_questions):
                 with cols[idx]:
-                    if st.button(question, key=f"suggest_{idx}"):
-                        st.session_state.current_question = question
+                    if st.button(question, key=f"suggest_{idx}", use_container_width=True):
+                        # 直接处理提问逻辑
+                        if st.session_state.subtitles:
+                            # 立即清空之前的状态
+                            st.session_state.last_answer = None
+                            st.session_state.last_timestamps = []
+                            st.session_state.expert_answer = None
+                            st.session_state.show_expert_button = False
+
+                            with st.spinner("正在查找相关片段..."):
+                                # 准备字幕文本
+                                subtitles_text = '\n'.join([
+                                    f"[{s['start']} - {s['end']}] {s['text']}"
+                                    for s in st.session_state.subtitles
+                                ])
+
+                                # 调用API获取答案
+                                answer = call_qwen_api(question, subtitles_text)
+
+                                # 提取时间戳
+                                all_timestamps = extract_all_timestamps(answer)
+                                most_relevant_timestamp = [all_timestamps[0]] if all_timestamps else []
+
+                                # 移除时间点列表部分
+                                cleaned_answer = remove_timestamp_section(answer)
+
+                                # 存储到 session_state
+                                st.session_state.current_user_question = question
+                                st.session_state.last_answer = cleaned_answer
+                                st.session_state.last_timestamps = most_relevant_timestamp
+
+                                if most_relevant_timestamp:
+                                    st.session_state.show_expert_button = True
+
                         st.rerun()
 
             st.markdown('</div>', unsafe_allow_html=True)
