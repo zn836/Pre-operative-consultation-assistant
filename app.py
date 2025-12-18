@@ -21,85 +21,53 @@ st.set_page_config(
     layout="wide"
 )
 
-# 自定义CSS样式
+# 自定义CSS - 修复手机端显示问题
 st.markdown("""
 <style>
-    .main-title {
-        text-align: center;
-        color: #2c3e50;
-        font-size: 2.5em;
-        font-weight: bold;
-        margin-bottom: 30px;
-    }
-    .video-container {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
-    .question-box {
-        margin: 20px 0;
-    }
-    .answer-box {
-        background-color: #f0f8ff;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #4CAF50;
-        margin: 20px 0;
-    }
-    .timestamp-link {
-        color: #ff6b6b;
-        font-weight: bold;
-        cursor: pointer;
-    }
-    .recommended-questions {
-        background-color: #fff8e1;
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 30px;
-    }
-    .question-button {
-        margin: 5px;
-    }
-    /* 隐藏原始输入框的label */
-    div[data-testid="stTextInput"] > label {
-        display: none;
-    }
-    /* 调整输入框容器的对齐 */
-    div[data-testid="column"]:has(div[data-testid="stTextInput"]) {
-        display: flex;
-        align-items: flex-end;
-    }
-    /* 调整按钮容器的对齐 */
-    div[data-testid="column"]:has(button[kind="primary"]) {
-        display: flex;
-        align-items: flex-end;
-    }
-    /* 强制按钮在移动端也并排显示 */
-    @media (max-width: 768px) {
-        [data-testid="column"] {
-            min-width: 0 !important;
-            flex: 1 !important;
-        }
-        [data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-        }
-    }
-    /* 确保按钮文字不换行并缩小尺寸 */
-    button[kind="primary"], button[kind="secondary"] {
-        white-space: nowrap !important;
-        font-size: 0.75rem !important;
-        padding: 0.35rem 0.5rem !important;
+    /* 推荐问题按钮样式 - 支持文字换行 */
+    .recommended-questions button {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
         height: auto !important;
-        min-height: 2rem !important;
+        min-height: 2.5rem !important;
+        padding: 0.75rem 1rem !important;
+        text-align: left !important;
+        line-height: 1.5 !important;
     }
-    /* 针对功能按钮进一步缩小 */
-    button[data-testid="baseButton-secondary"],
-    button[data-testid="baseButton-primary"] {
-        transform: scale(0.9) !important;
-        transform-origin: center !important;
+
+    /* 手机端优化 */
+    @media (max-width: 768px) {
+        .recommended-questions button {
+            font-size: 0.9rem !important;
+            padding: 0.6rem 0.8rem !important;
+        }
+
+        /* 确保按钮容器不超出屏幕 */
+        .recommended-questions {
+            width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        /* 按钮文字换行 */
+        .recommended-questions button p {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+    }
+
+    /* 答案框样式 */
+    .answer-box {
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
+
+
 
 # 初始化 session state
 if 'current_video' not in st.session_state:
@@ -524,44 +492,43 @@ if video_folder.exists():
             st.markdown("### 💡 猜你可能想问")
             st.markdown('<div class="recommended-questions">', unsafe_allow_html=True)
 
-            cols = st.columns(len(st.session_state.suggested_questions))
+            # 每个问题独立成行,避免挤在一起
             for idx, question in enumerate(st.session_state.suggested_questions):
-                with cols[idx]:
-                    if st.button(question, key=f"suggest_{idx}", use_container_width=True):
-                        # 直接处理提问逻辑
-                        if st.session_state.subtitles:
-                            # 立即清空之前的状态
-                            st.session_state.last_answer = None
-                            st.session_state.last_timestamps = []
-                            st.session_state.expert_answer = None
-                            st.session_state.show_expert_button = False
+                if st.button(question, key=f"suggest_{idx}", use_container_width=True):
+                    # 直接处理提问逻辑
+                    if st.session_state.subtitles:
+                        # 立即清空之前的状态
+                        st.session_state.last_answer = None
+                        st.session_state.last_timestamps = []
+                        st.session_state.expert_answer = None
+                        st.session_state.show_expert_button = False
 
-                            with st.spinner("正在查找相关片段..."):
-                                # 准备字幕文本
-                                subtitles_text = '\n'.join([
-                                    f"[{s['start']} - {s['end']}] {s['text']}"
-                                    for s in st.session_state.subtitles
-                                ])
+                        with st.spinner("正在查找相关片段..."):
+                            # 准备字幕文本
+                            subtitles_text = '\n'.join([
+                                f"[{s['start']} - {s['end']}] {s['text']}"
+                                for s in st.session_state.subtitles
+                            ])
 
-                                # 调用API获取答案
-                                answer = call_qwen_api(question, subtitles_text)
+                            # 调用API获取答案
+                            answer = call_qwen_api(question, subtitles_text)
 
-                                # 提取时间戳
-                                all_timestamps = extract_all_timestamps(answer)
-                                most_relevant_timestamp = [all_timestamps[0]] if all_timestamps else []
+                            # 提取时间戳
+                            all_timestamps = extract_all_timestamps(answer)
+                            most_relevant_timestamp = [all_timestamps[0]] if all_timestamps else []
 
-                                # 移除时间点列表部分
-                                cleaned_answer = remove_timestamp_section(answer)
+                            # 移除时间点列表部分
+                            cleaned_answer = remove_timestamp_section(answer)
 
-                                # 存储到 session_state
-                                st.session_state.current_user_question = question
-                                st.session_state.last_answer = cleaned_answer
-                                st.session_state.last_timestamps = most_relevant_timestamp
+                            # 存储到 session_state
+                            st.session_state.current_user_question = question
+                            st.session_state.last_answer = cleaned_answer
+                            st.session_state.last_timestamps = most_relevant_timestamp
 
-                                if most_relevant_timestamp:
-                                    st.session_state.show_expert_button = True
+                            if most_relevant_timestamp:
+                                st.session_state.show_expert_button = True
 
-                        st.rerun()
+                    st.rerun()
 
             st.markdown('</div>', unsafe_allow_html=True)
     else:

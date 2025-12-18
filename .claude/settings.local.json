@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(if [ -d \"video\" ])",
+      "Bash(then ls -la video/)",
+      "Bash(else echo \"video directory not found\")",
+      "Bash(fi)",
+      "Bash(if [ -f \".env\" ])",
+      "Bash(then echo \".env exists\")",
+      "Bash(else echo \".env not found\")",
+      "Bash(python -m py_compile:*)"
+    ]
+  }
+}
