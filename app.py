@@ -392,22 +392,34 @@ if video_folder.exists():
         )
 
         # 创建一行多列布局：提问按钮、播放按钮、专家解答按钮
-        col1, col2, col3, col4 = st.columns([1, 1, 2, 2])
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            ask_button = st.button("🔍 提问", type="primary")
+            ask_button = st.button("🔍 提问", type="primary", use_container_width=True)
 
-        # 在提问按钮旁边显示播放和专家解答按钮
+        # 在提问按钮旁边显示播放和专家解答按钮（并排显示，手机端友好）
         with col2:
-            if st.session_state.last_timestamps:
-                timestamp = st.session_state.last_timestamps[0]
-                if st.button(f"📍播放", key="jump_most_relevant", type="primary"):
+            # 按钮状态：只有当有时间戳时才启用
+            play_disabled = not bool(st.session_state.last_timestamps)
+            if st.button("📍播放相关内容",
+                        key="jump_most_relevant",
+                        type="primary" if not play_disabled else "secondary",
+                        disabled=play_disabled,
+                        use_container_width=True):
+                if st.session_state.last_timestamps:
+                    timestamp = st.session_state.last_timestamps[0]
                     st.session_state.video_time = time_to_seconds(timestamp)
                     st.rerun()
 
         with col3:
-            if  st.session_state.last_timestamps:
-                if st.button("👨‍⚕️ 获取专家详细解答", key="get_expert_answer", type="secondary"):
-                    with st.spinner("正在生成专家解答..."):
+            # 按钮状态：只有当有时间戳时才启用
+            expert_disabled = not bool(st.session_state.last_timestamps)
+            if st.button("👨‍⚕️获取详细回答",
+                        key="get_expert_answer",
+                        type="primary" if not expert_disabled else "secondary",
+                        disabled=expert_disabled,
+                        use_container_width=True):
+                if st.session_state.last_timestamps:
+                    with st.spinner("正在获取详细回答..."):
                         timestamp = st.session_state.last_timestamps[0]
                         # 使用第一步的内容概要作为输入
                         expert_answer = call_expert_answer_api(
@@ -416,15 +428,18 @@ if video_folder.exists():
                             timestamp
                         )
                         st.session_state.expert_answer = expert_answer
+                        st.rerun()
 
         # 处理提问
         if ask_button and user_question:
             if st.session_state.subtitles:
-                with st.spinner("正在查找相关片段..."):
-                    # 重置专家回答状态
-                    st.session_state.expert_answer = None
-                    st.session_state.show_expert_button = False
+                # 立即清空之前的状态，让按钮变灰
+                st.session_state.last_answer = None
+                st.session_state.last_timestamps = []
+                st.session_state.expert_answer = None
+                st.session_state.show_expert_button = False
 
+                with st.spinner("正在查找相关片段..."):
                     # 准备字幕文本
                     subtitles_text = '\n'.join([
                         f"[{s['start']} - {s['end']}] {s['text']}"
@@ -449,7 +464,8 @@ if video_folder.exists():
                     # 如果找到了时间戳，显示专家回答按钮
                     if most_relevant_timestamp:
                         st.session_state.show_expert_button = True
-                        st.rerun()  # 立即刷新页面以显示按钮
+
+                    st.rerun()  # 刷新页面以更新按钮状态
             else:
                 st.error("❌ 请先选择包含字幕文件的视频")
 
