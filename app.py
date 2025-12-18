@@ -9,10 +9,10 @@ from prompts import get_qa_prompt, get_suggested_questions_prompt, get_expert_an
 # 加载环境变量
 load_dotenv()
 
-# API配置
-API_BASE_URL = "http://58.34.97.143:4000/v1/chat/completions"
-API_KEY = "sk-9jWCuocCFjkCRWVvdtwG"
-MODEL_NAME = "openai/gpt-oss-120b"
+# API配置 - 千问API
+API_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+API_KEY = "sk-0d3e8da3cba84377828e32b50562da9c"  # 请替换为您的千问API Key
+MODEL_NAME = "qwen-plus"  # 可选: qwen-turbo, qwen-plus, qwen-max
 
 # 页面配置
 st.set_page_config(
@@ -291,7 +291,7 @@ def call_expert_answer_api(question, relevant_content, timestamp):
             "temperature": 0.7,
             "top_p": 0.8
         }
-
+        
         response = requests.post(API_BASE_URL, headers=headers, json=data, timeout=60)
 
         if response.status_code == 200:
@@ -539,6 +539,6 @@ else:
 # 页脚
 st.markdown("---")
 st.markdown(
-    '<div style="text-align: center; color: #888;">💡 视频问答助手 | Powered by Streamlit & GPT-OSS-120B</div>',
+    '<div style="text-align: center; color: #888;">💡 视频问答助手 | Powered by Streamlit & 阿里云千问</div>',
     unsafe_allow_html=True
 )
